@@ -1,0 +1,28 @@
+{
+  "name": "maplibre-tile-worker",
+  "version": "0.0.1",
+  "description": "Tile worker code for maplibre-react",
+  "private": true,
+  "author": "Joost Lubach <joostlubach@gmail.com>",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src --ext .ts",
+    "check": "tsc -p . --noEmit",
+    "test": "NODE_ENV=test jest"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "logger": "workspace:*",
+    "ytil": "workspace:^"
+  },
+  "peerDependencies": {
+    "mobx": ">=6.0.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.0",
+    "typescript": "5.4.3"
+  }
+}
