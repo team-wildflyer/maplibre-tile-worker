@@ -16,9 +16,9 @@ export class TileWorker<Params> {
       try {
         switch (type) {
         case 'draw':
-          await this.handleDrawMessage(payload)
+          return await this.handleDrawMessage(payload)
         case 'abort':
-          this.handleAbortMessage()
+          return this.handleAbortMessage()
         }
       } catch (error) {
         this.logger.error('Error handling message', error)
