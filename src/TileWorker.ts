@@ -21,7 +21,9 @@ export class TileWorker<Params> {
           return this.handleAbortMessage()
         }
       } catch (error) {
-        this.logger.error('Error handling message', error)
+        setTimeout(() => {
+          throw error
+        }, 0)
       } finally {
         this.currentDrawer = null
       }
@@ -49,6 +51,7 @@ export class TileWorker<Params> {
   }
 
   private handleAbortMessage() {
+    this.logger.info('Aborting tile drawing')
     this.currentDrawer?.abort?.()
     this.currentDrawer = null
   }
