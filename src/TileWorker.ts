@@ -1,14 +1,14 @@
 import Logger from 'logger'
 
-export class TileWorker<Params> {
+export class TileWorker {
 
   constructor(
-    private readonly drawer: (params: Params) => TileDrawer<Params>,
+    private readonly drawer: (url: string) => TileDrawer,
     private readonly options: TileWorkerOptions = {}
   ) {}
 
   private readonly logger = new Logger('TileWorker')
-  private currentDrawer: TileDrawer<Params> | null = null
+  private currentDrawer: TileDrawer | null = null
 
   public install() {
     self.addEventListener('message', this.messageHandler)
@@ -35,23 +35,22 @@ export class TileWorker<Params> {
     }
   }
 
-  private async handleDrawMessage(payload: Params) {
-    const drawer = this.drawer(payload)
+  private async handleDrawMessage(url: string) {
+    if (this.currentDrawer != null) {
+      this.logger.warning('Tile drawing is already in progress, aborting previous request')
+      this.currentDrawer.abort?.()
+    }
+
+    const drawer = this.drawer(url)
     this.currentDrawer = drawer
 
-    const buffer = await drawer.draw(payload)
+    const buffer = await drawer.draw(url)
     if (buffer == null) {
-      return self.postMessage({
-        type:    'result',
-        payload: null,
-      })
+      return postMessage({type: 'result', payload: null})
     } else {
       // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
       // messaging. Use a quick cast to `any` to bypass the type check.
-      return (self.postMessage as any)({
-        type:    'result',
-        payload: buffer,
-      }, [buffer])
+      return postMessage({type: 'result', payload: buffer}, [buffer])
     }
   }
 
@@ -73,8 +72,10 @@ export class TileWorker<Params> {
 
 }
 
-interface TileDrawer<Params> {
-  draw:   (params: Params) => Promise<ArrayBuffer | null> | ArrayBuffer | null
+const postMessage = self.postMessage.bind(self) as (message: any, transfer?: Transferable[]) => void
+
+interface TileDrawer {
+  draw:   (url: string) => Promise<ArrayBuffer | null> | ArrayBuffer | null
   abort?: () => void
 }
 
