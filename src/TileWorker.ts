@@ -44,13 +44,13 @@ export class TileWorker {
     const drawer = this.drawer(url)
     this.currentDrawer = drawer
 
-    const buffer = await drawer.draw(url)
+    const buffer: ArrayBuffer | null = await drawer.draw(url)
     if (buffer == null) {
       return postMessage({type: 'result', payload: null})
     } else {
       // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
       // messaging. Use a quick cast to `any` to bypass the type check.
-      return postMessage({type: 'result', payload: buffer}, [buffer])
+      return postMessage({type: 'result', payload: {buffer, url}}, [buffer])
     }
   }
 
