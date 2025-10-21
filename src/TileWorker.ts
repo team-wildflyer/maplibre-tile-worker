@@ -59,10 +59,7 @@ export class TileWorker {
         return
       }
 
-      this.logger.error(`Error while drawing ${url}: ${error}`)
-      if (error instanceof Error && error.stack != null) {
-        this.logger.error(error.stack)
-      }
+      console.error(`Error while drawing ${url}: ${error}`)
     } finally {
       this.currentDrawer = null
     }
