@@ -15,48 +15,65 @@ export class TileWorker {
   }
   
   private messageHandler = async (event: MessageEvent) => {
-    try {
-      const {type, payload} = event.data as {type: string, payload: any}
+    const data = event.data as (
+      | {type: 'draw', payload: {url: string}}
+      | {type: 'draw:abort'}
+      | {type: string, payload: any}
+    )
 
-      switch (type) {
-      case 'draw':
-        return await this.handleDrawMessage(payload)
-      case 'abort':
-        return this.handleAbortMessage()
-      default:
-        return this.handleAdditionalMessage(type, payload)
-      }
-    } catch (error) {
-      setTimeout(() => {
-        throw error
-      }, 0)
-    } finally {
-      this.currentDrawer = null
+    switch (data.type) {
+    case 'draw':
+      return await this.handleDrawMessage(data.payload.url)
+    case 'draw:abort':
+      return this.handleDrawAbortMessage()
+    default:
+      return this.handleAdditionalMessage(data.type, (data as any).payload)
     }
   }
 
   private async handleDrawMessage(url: string) {
     if (this.currentDrawer != null) {
-      this.logger.warning('Tile drawing is already in progress, aborting previous request')
-      this.currentDrawer.abort?.()
+      throw new Error("Tile drawing is already in progress")
     }
 
-    const drawer = this.drawer(url)
-    this.currentDrawer = drawer
+    try {
+      const drawer = this.drawer(url)
+      this.currentDrawer = drawer
 
-    const buffer: ArrayBuffer | null = await drawer.draw(url)
-    if (buffer == null) {
-      return postMessage({type: 'result', payload: null})
-    } else {
-      // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
-      // messaging. Use a quick cast to `any` to bypass the type check.
-      return postMessage({type: 'result', payload: {buffer, url}}, [buffer])
+      const data: ArrayBuffer | null = await drawer.draw(url)
+
+      // If the current drawer has changed or been invalidated, don't return anything.
+      if (drawer !== this.currentDrawer) { return }
+
+      if (data == null) {
+        return postMessage({type: 'draw:result', payload: {data: null, url}})
+      } else {
+        // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
+        // messaging. Use a quick cast to `any` to bypass the type check.
+        return postMessage({type: 'draw:result', payload: {data, url}}, [data])
+      }
+    } catch (error) {
+      // Ignore abort errors.
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        this.logger.debug("Draw request was aborted", {url})
+        return
+      }
+
+      this.logger.error(`Error while drawing ${url}`)
+      if (error instanceof Error) {
+        this.logger.error(error.stack ?? error.message)
+      } else {
+        this.logger.error(`${error}`)
+      }
+    } finally {
+      this.currentDrawer = null
     }
   }
 
-  private handleAbortMessage() {
+  private handleDrawAbortMessage() {
     this.currentDrawer?.abort?.()
     this.currentDrawer = null
+    return postMessage({type: 'draw:aborted'})
   }
   
   private handleAdditionalMessage(type: string, payload: any) {
