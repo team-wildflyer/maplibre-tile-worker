@@ -1,9 +1,10 @@
 import Logger from 'logger'
+import { EmptyObject } from 'ytil'
 
-export class TileWorker {
+export class TileWorker<Data = EmptyObject> {
 
   constructor(
-    private readonly drawer: (url: string) => TileDrawer,
+    private readonly drawer: (url: string, data: Data) => TileDrawer,
     private readonly options: TileWorkerOptions = {}
   ) {}
 
@@ -16,14 +17,14 @@ export class TileWorker {
   
   private messageHandler = async (event: MessageEvent) => {
     const data = event.data as (
-      | {type: 'draw', payload: {url: string}}
+      | {type: 'draw', payload: {url: string, data: Data}}
       | {type: 'draw:abort'}
       | {type: string, payload: any}
     )
 
     switch (data.type) {
     case 'draw':
-      return await this.handleDrawMessage(data.payload.url)
+      return await this.handleDrawMessage(data.payload.url, data.payload.data)
     case 'draw:abort':
       return this.handleDrawAbortMessage()
     default:
@@ -31,13 +32,13 @@ export class TileWorker {
     }
   }
 
-  private async handleDrawMessage(url: string) {
+  private async handleDrawMessage(url: string, requestData: Data) {
     if (this.currentDrawer != null) {
       throw new Error("Tile drawing is already in progress")
     }
 
     try {
-      const drawer = this.drawer(url)
+      const drawer = this.drawer(url, requestData)
       this.currentDrawer = drawer
 
       const data: ArrayBuffer | null = await drawer.draw(url)
@@ -50,7 +51,7 @@ export class TileWorker {
       } else {
         // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
         // messaging. Use a quick cast to `any` to bypass the type check.
-        return postMessage({type: 'draw:result', payload: {data, url}}, [data])
+        return postMessage({type: 'draw:result', payload: {data, url}}, {transfer: [data]})
       }
     } catch (error) {
       // Ignore abort errors.
@@ -83,8 +84,6 @@ export class TileWorker {
   }
 
 }
-
-const postMessage = self.postMessage.bind(self) as (message: any, transfer?: Transferable[]) => void
 
 interface TileDrawer {
   draw:   (url: string) => Promise<ArrayBuffer | null> | ArrayBuffer | null
