@@ -4,12 +4,12 @@ import { EmptyObject } from 'ytil'
 export class TileWorker<Data = EmptyObject> {
 
   constructor(
-    private readonly drawer: (url: string, data: Data) => TileDrawer,
+    private readonly renderer: (url: string, data: Data) => TileRenderer,
     private readonly options: TileWorkerOptions = {}
   ) {}
 
   private readonly logger = new Logger('TileWorker')
-  private currentDrawer: TileDrawer | null = null
+  private currentRenderer: TileRenderer | null = null
 
   public install() {
     self.addEventListener('message', this.messageHandler)
@@ -17,15 +17,15 @@ export class TileWorker<Data = EmptyObject> {
   
   private messageHandler = async (event: MessageEvent) => {
     const data = event.data as (
-      | {type: 'draw', payload: {url: string, data: Data}}
-      | {type: 'draw:abort'}
+      | {type: 'render', payload: {url: string, data: Data}}
+      | {type: 'render:abort'}
       | {type: string, payload: any}
     )
 
     switch (data.type) {
-    case 'draw':
+    case 'render':
       return await this.handleDrawMessage(data.payload.url, data.payload.data)
-    case 'draw:abort':
+    case 'render:abort':
       return this.handleDrawAbortMessage()
     default:
       return this.handleAdditionalMessage(data.type, (data as any).payload)
@@ -33,25 +33,33 @@ export class TileWorker<Data = EmptyObject> {
   }
 
   private async handleDrawMessage(url: string, requestData: Data) {
-    if (this.currentDrawer != null) {
+    if (this.currentRenderer != null) {
       throw new Error("Tile drawing is already in progress")
     }
 
     try {
-      const drawer = this.drawer(url, requestData)
-      this.currentDrawer = drawer
+      const renderer = this.renderer(url, requestData)
+      this.currentRenderer = renderer
 
-      const data: ArrayBuffer | null = await drawer.draw(url)
+      const data: ArrayBuffer | null = await renderer.render()
 
       // If the current drawer has changed or been invalidated, don't return anything.
-      if (drawer !== this.currentDrawer) { return }
+      if (renderer !== this.currentRenderer) { return }
 
       if (data == null) {
-        return postMessage({type: 'draw:result', payload: {data: null, url}})
+        return postMessage({
+          type:    'render:result',
+          payload: {
+            data: null,
+            url,
+          }})
       } else {
-        // Note: typing for `self.postMessage` is incorrect. It is set up for window messaging, not for worker
-        // messaging. Use a quick cast to `any` to bypass the type check.
-        return postMessage({type: 'draw:result', payload: {data, url}}, {transfer: [data]})
+        return postMessage({
+          type:    'render:result',
+          payload: {data, url},
+        }, {
+          transfer: [data],
+        })
       }
     } catch (error) {
       // Ignore abort errors.
@@ -62,14 +70,14 @@ export class TileWorker<Data = EmptyObject> {
 
       console.error(`Error while drawing ${url}: ${error}`)
     } finally {
-      this.currentDrawer = null
+      this.currentRenderer = null
     }
   }
 
   private handleDrawAbortMessage() {
-    this.currentDrawer?.abort?.()
-    this.currentDrawer = null
-    return postMessage({type: 'draw:aborted'})
+    this.currentRenderer?.abort?.()
+    this.currentRenderer = null
+    return postMessage({type: 'render:aborted'})
   }
   
   private handleAdditionalMessage(type: string, payload: any) {
@@ -85,8 +93,8 @@ export class TileWorker<Data = EmptyObject> {
 
 }
 
-interface TileDrawer {
-  draw:   (url: string) => Promise<ArrayBuffer | null> | ArrayBuffer | null
+interface TileRenderer {
+  render: () => Promise<ArrayBuffer | null>
   abort?: () => void
 }
 
