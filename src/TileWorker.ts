@@ -5,7 +5,7 @@ export class TileWorker<Data = EmptyObject> {
 
   constructor(
     private readonly renderer: (url: string, data: Data) => TileRenderer,
-    private readonly options: TileWorkerOptions = {}
+    private readonly options: TileWorkerOptions = {},
   ) {}
 
   private readonly logger = new Logger('TileWorker')
