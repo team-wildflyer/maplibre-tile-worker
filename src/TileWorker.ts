@@ -24,17 +24,18 @@ export class TileWorker<Data = EmptyObject> {
 
     switch (data.type) {
     case 'render':
-      return await this.handleDrawMessage(data.payload.url, data.payload.data)
+      return await this.handleRenderMessage(data.payload.url, data.payload.data)
     case 'render:abort':
-      return this.handleDrawAbortMessage()
+      return this.handleRenderAbortMessage()
     default:
       return this.handleAdditionalMessage(data.type, (data as any).payload)
     }
   }
 
-  private async handleDrawMessage(url: string, requestData: Data) {
+  private async handleRenderMessage(url: string, requestData: Data) {
     if (this.currentRenderer != null) {
-      throw new Error("Tile drawing is already in progress")
+      console.warn("Tile rendering is already in progress")
+      return null
     }
 
     try {
@@ -68,13 +69,14 @@ export class TileWorker<Data = EmptyObject> {
         return
       }
 
-      console.error(`Error while drawing ${url}: ${error}`)
+      console.error(`Error while drawing ${url}`)
+      console.error(error)
     } finally {
       this.currentRenderer = null
     }
   }
 
-  private handleDrawAbortMessage() {
+  private handleRenderAbortMessage() {
     this.currentRenderer?.abort?.()
     this.currentRenderer = null
     return postMessage({type: 'render:aborted'})

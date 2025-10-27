@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint",
     "check": "tsc -p . --noEmit",
     "test": "NODE_ENV=test jest"
   },
@@ -23,6 +23,10 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.17.20",
+    "eslint": "^9.38.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "js-yaml": "^4.1.0",
     "typescript": "5.4.3"
   }
 }
